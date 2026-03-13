@@ -61,7 +61,11 @@ I'm learning Kotlin!
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    println("My name is wangzhongping")
+    println("My student ID is 2025003002")
+    println("I'm learning Kotlin!")
+}
 ---
 
 ## 题目 3：修正编译错误
@@ -86,7 +90,9 @@ fun main() {
 ```kotlin
 // 请将修正后的完整代码粘贴至此
 ```
-
+fun main() {
+    println("Student 2025003002 says hello")
+}
 ---
 
 **练习 3.2**
@@ -104,7 +110,9 @@ fun main() {
 ```kotlin
 // 请将修正后的完整代码粘贴至此
 ```
-
+fun main() {
+    println("Hello, my name is wangzhongping")
+}
 ---
 
 **练习 3.3**
@@ -128,7 +136,11 @@ Course: Kotlin
 ```kotlin
 // 请将修正后的完整代码粘贴至此
 ```
-
+fun main() {
+    println("ID: [2025003002]") 
+    println("Name: [wangzhongping]") 
+    println("Course: Kotlin")
+}
 ---
 
 **练习 3.4**
@@ -146,7 +158,9 @@ fun main() (
 ```kotlin
 // 请将修正后的完整代码粘贴至此
 ```
-
+fun main() {
+    println("My ID ends with 2")
+}
 ---
 
 ## 题目 4：字符串模板
@@ -173,7 +187,11 @@ You have 42 unread messages.
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    val numberOfMessages = 2   
+    // 使用字符串模板嵌入变量
+    println("You have $numberOfMessages unread messages.")
+}
 ---
 
 ## 题目 5：字符串串联
@@ -191,7 +209,10 @@ Package for zhangwei will arrive, tracking ID: 20231042.
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    val wangzhongpingDelivery = "2025003002"
+    println("Package for wangzhongping will arrive, tracking ID: " + wangzhongpingDelivery + ".")
+}
 ---
 
 ## 题目 6：消息格式
@@ -220,7 +241,16 @@ Total: 44
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    val studentName = "wangzhongping"
+    val score     = 2
+    val bonus     = 2
+    val total     = score + bonus
+    
+    println("Name: $studentName")
+    println("Score: $score, Bonus: $bonus")
+    println("Total: $total")
+}
 ---
 
 ## 题目 7：实现基本数学运算
@@ -242,7 +272,16 @@ Total: 44
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    val operandOne = 00
+    val operandTwo = 2
+    
+    println("$operandOne + $operandTwo = ${operandOne + operandTwo}")
+    println("$operandOne - $operandTwo = ${operandOne - operandTwo}")
+    println("$operandOne / $operandTwo = ${operandOne / operandTwo}")
+    println("$operandOne * $operandTwo = ${operandOne * operandTwo}")
+    println("$operandOne % $operandTwo = ${operandOne % operandTwo}")
+}
 ---
 
 ## 题目 8：默认参数
@@ -274,7 +313,14 @@ Happy Birthday, zhangwei! You are now 4 years old!
 ```kotlin
 // 请将完整代码粘贴至此
 ```
+fun main() {
+    println(wangzhongpingGreeting(age = 2))       
+    println(wangzhongpingGreeting("wangzhongping", 0))   
+}
 
+fun wangzhongpingGreeting(name: String = "2025003002", age: Int): String {
+    return "Happy Birthday, $name! You are now $age years old!"
+}
 ---
 
 ## 题目 9：计步器
@@ -308,7 +354,17 @@ Walking 4200 steps burns 168.0 calories
 ```kotlin
 // 请将重命名后的完整代码粘贴至此
 ```
+fun main() {
+    val steps = 2 * 100
+    val caloriesBurned = pedometerStepsToCalories(steps)
+    println("Walking $steps steps burns $caloriesBurned calories")
+}
 
+fun pedometerStepsToCalories(numberOfSteps: Int): Double {
+    val caloriesBurnedForEachStep = 0.04
+    val totalCaloriesBurned = numberOfSteps * caloriesBurnedForEachStep
+    return totalCaloriesBurned
+}
 ---
 
 ## 题目 10：比较两个数字
@@ -336,7 +392,18 @@ fun main() {
 ```kotlin
 // 请将完整代码粘贴至此
 ```
-
+fun main() {
+    val first = 00
+    val second = 02
+    val result = if (first > second) {
+        first
+    } else if (second > first) {
+        second
+    } else {
+        "First and second are equal."
+    }
+    println(result)
+}
 ---
 
 ## 题目 11：将重复代码移至一个函数中
@@ -376,7 +443,19 @@ fun main() {
 ```kotlin
 // 请将完整代码粘贴至此
 ```
+fun main() {
+    printWangzhongpingWeather("Ankara", 27, 31, 82)
+    printWangzhongpingWeather("Tokyo", 32, 36, 10)
+    printWangzhongpingWeather("Cape Town", 59, 64, 2)
+    printWangzhongpingWeather("Guatemala City", 50, 55, 7)
+}
 
+fun printWangzhongpingWeather(city: String, lowTemp: Int, highTemp: Int, rainChance: Int) {
+    println("City: $city")
+    println("Low temperature: $lowTemp, High temperature: $highTemp")
+    println("Chance of rain: $rainChance%")
+    println()
+}
 ---
 
 ## 参考资料
