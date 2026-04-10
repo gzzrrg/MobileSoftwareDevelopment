@@ -6,7 +6,7 @@ PR 自动审核脚本 - 融合版本
 - 文件内容截断（防止 token 超限）
 - 禁止删除文件检查
 - 禁止修改以前作业检查
-- 完整规范嵌入 Kimi prompt
+- 完整规范嵌入 GLM prompt
 - 详细的截止时间处理
 """
 
@@ -21,11 +21,11 @@ import requests
 # ── 环境变量 ──────────────────────────────────────────────
 PR_TITLE = os.environ["PR_TITLE"]
 PR_NUMBER = os.environ["PR_NUMBER"]
-KIMI_KEY = os.environ.get("KIMI_API_KEY", "")
+GLM_KEY = os.environ.get("GLM_API_KEY", "")
 GH_TOKEN = os.environ["GH_TOKEN"]
 REPO = os.environ["REPO"]
 HEAD_SHA = os.environ["HEAD_SHA"]
-
+PAT_TOKEN = os.environ.get("PAT_TOKEN", "")
 API = "https://api.github.com"
 GH = {
     "Authorization": f"Bearer {GH_TOKEN}",
@@ -36,7 +36,7 @@ GH = {
 # 文件内容最大长度（防止 token 超限）
 MAX_CONTENT_LENGTH = 20000
 
-# 完整规范文档，嵌入 Kimi prompt
+# 完整规范文档，嵌入 GLM prompt
 SPEC = """# PR 合并要求规范
 
 ## 2. 学生文件夹规范
@@ -188,14 +188,41 @@ def reject(reason: str):
     sys.exit(0)
 
 
-def merge_pr():
-    return gh_put(
-        f"/repos/{REPO}/pulls/{PR_NUMBER}/merge",
-        {
-            "merge_method": "merge",
-            "commit_title": f"[自动合并] {PR_TITLE}",
-        },
+def ready_pr():
+    """如果是 Draft PR，先转成 Ready for review"""
+    query = """
+    mutation($prId: ID!) {
+      markPullRequestReadyForReview(input: {pullRequestId: $prId}) {
+        pullRequest { isDraft }
+      }
+    }
+    """
+    # 先获取 PR 的 node_id
+    pr_data = gh_get(f"/repos/{REPO}/pulls/{PR_NUMBER}")
+    node_id = pr_data.get("node_id")
+    if not pr_data.get("draft"):
+        return  # 不是 draft，不需要处理
+
+    requests.post(
+        "https://api.github.com/graphql",
+        headers=GH,
+        json={"query": query, "variables": {"prId": node_id}}
     )
+    print("  ✓ 已将 Draft PR 转为 Ready for review")
+
+
+def merge_pr():
+    headers = {
+        "Authorization": f"Bearer {PAT_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    r = requests.put(f"{API}/repos/{REPO}/pulls/{PR_NUMBER}/merge", headers=headers, json={
+        "merge_method": "merge",
+        "commit_title": f"[自动合并] {PR_TITLE}",
+    })
+    print(f"  [debug] merge status={r.status_code}, body={r.text}")
+    return r.status_code == 200
 
 
 def close_pr():
@@ -285,111 +312,98 @@ def check_file_scope(student_id_name: str, lab: str, changed_files: list):
 
 # ── 步骤 4：截止时间检查 ──────────────────────────────────
 
-# 格式1: "截止时间：2024-03-22 18:00"
-DEADLINE_INLINE_DATETIME_RE = re.compile(
-    r"截止[时日][间期][：:]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+(\d{1,2}:\d{2})"
+DATE_RE = re.compile(
+    r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?"
 )
-# 格式2: "截止时间：2024-03-22"
-DEADLINE_INLINE_DATE_RE = re.compile(
-    r"截止[时日][间期][：:]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})(?!\s*\d)"
+
+TIME_RE = re.compile(
+    r"(上午|下午|晚上)?\s*(\d{1,2}):(\d{2})"
 )
-# 格式3: "## 截止时间" 标题，下一行是 "2026-04-10，届时..."
-DEADLINE_HEADING_RE = re.compile(r"#+\s*截止时间\s*\n+\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})")
+
+
+def parse_datetime_from_text(text: str):
+    results = []
+
+    for date_match in DATE_RE.finditer(text):
+        year, month, day = map(int, date_match.groups())
+
+        # 默认时间 18:00
+        hour, minute = 18, 0
+
+        # 在日期后面找时间（局部窗口）
+        snippet = text[date_match.end(): date_match.end() + 30]
+
+        time_match = TIME_RE.search(snippet)
+        if time_match:
+            period, h, m = time_match.groups()
+            hour, minute = int(h), int(m)
+
+            if period in ["下午", "晚上"] and hour < 12:
+                hour += 12
+
+        try:
+            dt = datetime.datetime(year, month, day, hour, minute)
+            results.append(dt)
+        except ValueError:
+            continue
+
+    return results
 
 
 def get_deadline(lab: str):
-    """返回 datetime 对象（北京时间），读不到返回 None"""
     content = get_file_content(f"homework/{lab}/{lab}.md")
     if not content:
         return None
 
-    # 格式1: 带时分的行内截止时间
-    m = DEADLINE_INLINE_DATETIME_RE.search(content)
-    if m:
-        date_str = m.group(1).replace("/", "-")
-        time_str = m.group(2)
-        try:
-            return datetime.datetime.fromisoformat(f"{date_str}T{time_str}:00")
-        except ValueError:
-            pass
+    candidates = parse_datetime_from_text(content)
+    if not candidates:
+        return None
 
-    # 格式2: 只有日期的行内截止时间
-    m = DEADLINE_INLINE_DATE_RE.search(content)
-    if m:
-        date_str = m.group(1).replace("/", "-")
-        try:
-            d = datetime.date.fromisoformat(date_str)
-            return datetime.datetime(d.year, d.month, d.day, 18, 0, 0)
-        except ValueError:
-            pass
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
 
-    # 格式3: 标题式截止时间（## 截止时间 + 下一行日期）
-    m = DEADLINE_HEADING_RE.search(content)
-    if m:
-        date_str = m.group(1).replace("/", "-")
-        try:
-            d = datetime.date.fromisoformat(date_str)
-            return datetime.datetime(d.year, d.month, d.day, 18, 0, 0)
-        except ValueError:
-            pass
+    future = [dt for dt in candidates if dt >= now]
 
-    return None
+    if future:
+        return min(future)   # 最近未来时间
+    else:
+        return max(candidates)  # 都过期 → 取最后一个
 
 
 def check_deadline(lab: str):
     deadline = get_deadline(lab)
+
     if deadline is None:
         print("  [跳过] 未找到截止时间，跳过时间检查")
         return
 
-    # 当前北京时间
     now_bj = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
 
     if now_bj <= deadline:
-        return  # 未超时，正常通过
+        return
 
     delta = now_bj - deadline
     delta_days = delta.days
     delta_hours = int(delta.total_seconds() // 3600)
 
-    # 超时时长描述
-    if delta_days >= 1:
-        overtime_str = f"{delta_days} 天"
-    else:
-        overtime_str = f"{delta_hours} 小时"
+    overtime_str = f"{delta_days} 天" if delta_days >= 1 else f"{delta_hours} 小时"
 
-    timeout_msg = (
+    comment(
         f"## PR 检查未通过 ❌\n\n"
         f"此 PR 已超时。\n\n"
-        f"- **作业截止时间**：{deadline.strftime('%Y-%m-%d %H:%M')}\n"
-        f"- **当前时间**：{now_bj.strftime('%Y-%m-%d %H:%M')}（北京时间）\n"
-        f"- **超时时长**：{overtime_str}\n\n"
-        f"超过截止时间，暂不予合并。如有特殊情况，请联系老师说明。\n\n"
-        f"---\n*此评论由自动审核机器人生成。*"
+        f"- 截止时间：{deadline.strftime('%Y-%m-%d %H:%M')}\n"
+        f"- 当前时间：{now_bj.strftime('%Y-%m-%d %H:%M')}（北京时间）\n"
+        f"- 超时时长：{overtime_str}\n\n"
+        f"超过截止时间，暂不予合并。"
     )
-
-    if delta_days > 7:
-        # 超时 7 天以上，关闭 PR
-        comment(
-            timeout_msg.replace(
-                "暂不予合并。如有特殊情况，请联系老师说明。",
-                "超时 7 天以上，PR 已自动关闭。",
-            )
-        )
-        close_pr()
-        sys.exit(0)
-    else:
-        # 超时 0-7 天，评论拒绝但不关闭
-        comment(timeout_msg)
-        sys.exit(0)
+    sys.exit(0)
 
 
-# ── 步骤 5：Kimi 全面审核 ─────────────────────────────────
+# ── 步骤 5：GLM 全面审核 ─────────────────────────────────
 
 
-def check_with_kimi(student_id_name: str, lab: str, changed_files: list):
-    if not KIMI_KEY:
-        print("  [跳过] 未配置 KIMI_API_KEY，跳过 Kimi 审核")
+def check_with_glm(student_id_name: str, lab: str, changed_files: list):
+    if not GLM_KEY:
+        print("  [跳过] 未配置 GLM_API_KEY，跳过 GLM 审核")
         return
 
     # 学生提交的文件内容
@@ -448,13 +462,13 @@ def check_with_kimi(student_id_name: str, lab: str, changed_files: list):
 
     try:
         resp = requests.post(
-            "https://api.moonshot.cn/v1/chat/completions",
+            "https://open.bigmodel.cn/api/paas/v4/chat/completions",
             headers={
-                "Authorization": f"Bearer {KIMI_KEY}",
+                "Authorization": f"Bearer {GLM_KEY}",
                 "Content-Type": "application/json",
             },
             json={
-                "model": "moonshot-v1-32k",
+                "model": "glm-4",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg},
@@ -466,7 +480,7 @@ def check_with_kimi(student_id_name: str, lab: str, changed_files: list):
         text = resp.json()["choices"][0]["message"]["content"].strip()
         text = re.sub(r"```json|```", "", text).strip()
         result = json.loads(text)
-        print(f"  [Kimi] pass={result.get('pass')}, reason={result.get('reason')}")
+        print(f"  [GLM] pass={result.get('pass')}, reason={result.get('reason')}")
 
         if not result.get("pass", True):
             reject(
@@ -474,13 +488,18 @@ def check_with_kimi(student_id_name: str, lab: str, changed_files: list):
                 f"{result.get('reason', '内容存在问题，请检查后重新提交。')}"
             )
     except Exception as e:
-        print(f"  [warn] Kimi 审核异常，跳过：{e}")
+        print(f"  [warn] GLM 审核异常，跳过：{e}")
 
 
 # ── 主流程 ────────────────────────────────────────────────
 
 
 def main():
+    global PR_TITLE
+    # 实时获取最新 PR 标题，防止读到缓存的旧标题
+    pr_data = gh_get(f"/repos/{REPO}/pulls/{PR_NUMBER}")
+    PR_TITLE = pr_data.get("title", PR_TITLE)
+
     print(f"[PR #{PR_NUMBER}] 开始审核：{PR_TITLE}")
 
     # 1. 标题格式检查
@@ -509,9 +528,9 @@ def main():
     check_deadline(lab)
     print(f"  ✓ 截止时间检查通过")
 
-    # 7. Kimi 全面审核
-    check_with_kimi(student_id_name, lab, changed_files)
-    print(f"  ✓ Kimi 审核通过")
+    # 7. GLM 全面审核
+    check_with_glm(student_id_name, lab, changed_files)
+    print(f"  ✓ GLM 审核通过")
 
     # 全部通过，评论并合并
     comment(
@@ -529,7 +548,7 @@ def main():
         "| 文件格式 | ✅ |\n"
         "| 内容质量 | ✅ |\n"
     )
-
+    ready_pr()
     if merge_pr():
         print(f"  ✓ PR #{PR_NUMBER} 已自动合并")
     else:

@@ -66,7 +66,21 @@ Your phone is blowing up! You have 99+ notifications.
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+fun main() {
+    val morningNotification = 51
+    val eveningNotification = 135
+
+    printNotificationSummary(morningNotification)
+    printNotificationSummary(eveningNotification)
+}
+
+fun printNotificationSummary(numberOfMessages: Int) {
+    if (numberOfMessages < 100) {
+        println("You have $numberOfMessages notifications.")
+    } else {
+        println("Your phone is blowing up! You have 99+ notifications.")
+    }
+}
 ```
 
 ---
@@ -113,7 +127,33 @@ The movie ticket price for a person aged 87 is $20.
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+fun main() {
+    val child = 5
+    val adult = 28
+    val senior = 87
+    val isMonday = true
+
+    println("The movie ticket price for a person aged $child is \$${ticketPrice(child, isMonday)}.")
+    println("The movie ticket price for a person aged $adult is \$${ticketPrice(adult, isMonday)}.")
+    println("The movie ticket price for a person aged $senior is \$${ticketPrice(senior, isMonday)}.")
+}
+
+fun ticketPrice(age: Int, isMonday: Boolean): Int {
+    // 处理年龄超出范围的情况
+    if (age < 0 || age > 100) {
+        return -1
+    }
+
+    return when (age) {
+        in 0..12 -> 15 // 12岁及以下：儿童票15美元
+        in 13..60 -> {
+            // 13-60岁：标准票30美元，周一折扣25美元
+            if (isMonday) 25 else 30
+        }
+        in 61..100 -> 20 // 61岁及以上：老年票20美元
+        else -> -1 // 兜底返回-1（理论上不会执行）
+    }
+}
 ```
 
 ---
@@ -163,7 +203,41 @@ fun printFinalTemperature(
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+fun main() {
+    // 1. 摄氏度转华氏度: °F = 9/5 (°C) + 32
+    printFinalTemperature(
+        initialMeasurement = 27.0,
+        initialUnit = "Celsius",
+        finalUnit = "Fahrenheit",
+        conversionFormula = { celsius -> 9.0 / 5.0 * celsius + 32 }
+    )
+
+    // 2. 开尔文转摄氏度: °C = K - 273.15
+    printFinalTemperature(
+        initialMeasurement = 350.0,
+        initialUnit = "Kelvin",
+        finalUnit = "Celsius",
+        conversionFormula = { kelvin -> kelvin - 273.15 }
+    )
+
+    // 3. 华氏度转开尔文: K = 5/9 (°F - 32) + 273.15
+    printFinalTemperature(
+        initialMeasurement = 10.0,
+        initialUnit = "Fahrenheit",
+        finalUnit = "Kelvin",
+        conversionFormula = { fahrenheit -> 5.0 / 9.0 * (fahrenheit - 32) + 273.15 }
+    )
+}
+
+fun printFinalTemperature(
+    initialMeasurement: Double,
+    initialUnit: String,
+    finalUnit: String,
+    conversionFormula: (Double) -> Double
+) {
+    val finalMeasurement = String.format("%.2f", conversionFormula(initialMeasurement))
+    println("$initialMeasurement degrees $initialUnit is $finalMeasurement degrees $finalUnit.")
+}
 ```
 
 ---
@@ -185,7 +259,33 @@ fun printFinalTemperature(
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+class Song(
+    val title: String,
+    val artist: String,
+    val releaseYear: Int,
+    val playCount: Int
+) {
+    // 流行属性：播放次数 >= 1000 则为流行
+    val isPopular: Boolean
+        get() = playCount >= 1000
+
+    // 歌曲介绍方法，按指定格式输出
+    fun printSongDescription() {
+        println("$title, performed by $artist, was released in $releaseYear.")
+    }
+}
+
+fun main() {
+    // 测试示例
+    val song1 = Song("Shape of You", "Ed Sheeran", 2017, 5000000)
+    val song2 = Song("Test Song", "Unknown Artist", 2023, 800)
+
+    song1.printSongDescription()
+    println("Is ${song1.title} popular? ${song1.isPopular}")
+
+    song2.printSongDescription()
+    println("Is ${song2.title} popular? ${song2.isPopular}")
+}
 ```
 
 ---
@@ -231,7 +331,34 @@ Likes to climb. Has a referrer named Amanda, who likes to play tennis.
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+fun main() {
+    val amanda = Person("Amanda", 33, "play tennis", null)
+    val atiqah = Person("Atiqah", 28, "climb", amanda)
+
+    amanda.showProfile()
+    atiqah.showProfile()
+}
+
+class Person(val name: String, val age: Int, val hobby: String?, val referrer: Person?) {
+    fun showProfile() {
+        // 基础信息输出
+        print("Name: $name\nAge: $age")
+        
+        // 处理爱好字段
+        if (hobby != null) {
+            print("\nLikes to $hobby.")
+        } else {
+            print("\nNo specified hobbies.")
+        }
+
+        // 处理推荐人字段
+        if (referrer != null) {
+            println(" Has a referrer named ${referrer.name}, who likes to ${referrer.hobby}.")
+        } else {
+            println(" Doesn't have a referrer.")
+        }
+    }
+}
 ```
 
 ---
@@ -268,7 +395,62 @@ open class Phone(var isScreenLightOn: Boolean = false) {
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此（包含 Phone 类和你实现的 FoldablePhone 类）
+open class Phone(var isScreenLightOn: Boolean = false) {
+    open fun switchOn() {
+        isScreenLightOn = true
+    }
+
+    fun switchOff() {
+        isScreenLightOn = false
+    }
+
+    fun checkPhoneScreenLight() {
+        val phoneScreenLight = if (isScreenLightOn) "on" else "off"
+        println("The phone screen's light is $phoneScreenLight.")
+    }
+}
+
+class FoldablePhone(
+    var isFolded: Boolean = true,
+    isScreenLightOn: Boolean = false
+) : Phone(isScreenLightOn) {
+
+    override fun switchOn() {
+        if (!isFolded) {
+            isScreenLightOn = true
+        }
+    }
+
+    fun fold() {
+        isFolded = true
+    }
+
+    fun unfold() {
+        isFolded = false
+    }
+}
+
+// 程序入口main函数 + 测试用例
+fun main() {
+    val foldablePhone = FoldablePhone()
+
+    // 测试1：折叠状态按电源键，屏幕不亮
+    foldablePhone.switchOn()
+    foldablePhone.checkPhoneScreenLight()
+
+    // 测试2：展开后按电源键，屏幕亮起
+    foldablePhone.unfold()
+    foldablePhone.switchOn()
+    foldablePhone.checkPhoneScreenLight()
+
+    // 测试3：折叠后屏幕保持亮
+    foldablePhone.fold()
+    foldablePhone.checkPhoneScreenLight()
+
+    // 测试4：关机
+    foldablePhone.switchOff()
+    foldablePhone.checkPhoneScreenLight()
+}
 ```
 
 ---
@@ -308,11 +490,22 @@ Item B is sold at 3000.
 **你的答案：**
 
 ```kotlin
-// 请将完整代码粘贴至此
+fun main() {
+    val winningBid = Bid(5000, "Private Collector")
+
+    println("Item A is sold at ${auctionPrice(winningBid, 2000)}.")
+    println("Item B is sold at ${auctionPrice(null, 3000)}.")
+}
+
+class Bid(val amount: Int, val bidder: String)
+
+fun auctionPrice(bid: Bid?, minimumPrice: Int): Int {
+    return bid?.amount ?: minimumPrice
+}
 ```
 
 ---
 
 ## 参考资料
 
-- ###### [Kotlin Playground](https://play.kotlinlang.org/)
+- [Kotlin Playground](https://play.kotlinlang.org/)
